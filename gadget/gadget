@@ -1,0 +1,273 @@
+#!/bin/bash
+
+set -e
+
+# Configuration file location (adjust path as needed)
+CONFIG_FILE="${GADGET_CONFIG:-/etc/gadget-config}"
+[ -f "$CONFIG_FILE" ] || CONFIG_FILE="$(dirname "$0")/gadget-config"
+
+# Load configuration
+load_config() {
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "Error: Configuration file not found at $CONFIG_FILE" >&2
+        exit 1
+    fi
+    source "$CONFIG_FILE"
+}
+
+check_root() {
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "Error: This script must be run as root (use sudo)." >&2
+        exit 1
+    fi
+}
+
+cleanup() {
+    if [ -d "$F" ]; then
+        gadget_disconnect >/dev/null 2>&1 || true
+    fi
+}
+
+gadget_create() {
+    check_root
+    load_config
+
+    # Check if image already exists
+    if [ -f "$IMAGE" ]; then
+        echo "Warning: Image file $IMAGE already exists."
+        read -p "Do you want to overwrite it? This will destroy all data! [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Aborted."
+            exit 0
+        fi
+        rm -f "$IMAGE"
+    fi
+
+    echo "Creating USB image ($IMAGE_SIZE)..."
+    truncate -s "$IMAGE_SIZE" "$IMAGE"
+
+    echo "Creating partition table and FAT32 filesystem..."
+
+    # Create MBR partition table with a single partition using sfdisk
+    # This creates one partition starting at sector 2048 (1MB alignment) using the rest of the disk
+    echo "label: dos" | sfdisk "$IMAGE"
+    echo "2048,,0x0c," | sfdisk "$IMAGE"  # 0x0c = W95 FAT32 (LBA)
+
+    # Alternative using parted (uncomment if you prefer parted)
+    # parted -s "$IMAGE" mklabel msdos
+    # parted -s "$IMAGE" mkpart primary fat32 1MiB 100%
+
+    # Find a free loop device and set it up with partition scanning
+    echo "Setting up loop device for formatting..."
+    local loop_device
+    loop_device=$(losetup --show -f -P "$IMAGE")
+
+    # Wait for kernel to create partition devices
+    sleep 0.5
+
+    # Find the partition device
+    local part_device
+    if [ -e "${loop_device}p1" ]; then
+        part_device="${loop_device}p1"
+    elif [ -e "${loop_device}1" ]; then
+        part_device="${loop_device}1"
+    else
+        echo "Error: Partition device not found on $loop_device" >&2
+        losetup -d "$loop_device"
+        exit 1
+    fi
+
+    echo "Formatting $part_device as FAT32..."
+
+    # Format the partition as FAT32
+    # -F 32 = FAT32
+    # -n = volume label (optional, can be customized)
+    mkfs.vfat -F 32 -n "GADGET" "$part_device"
+
+    # Clean up loop device
+    echo "Cleaning up..."
+    losetup -d "$loop_device"
+
+    echo "Image created and formatted successfully!"
+    echo "Image: $IMAGE"
+    echo "Size: $IMAGE_SIZE"
+    echo "Filesystem: FAT32"
+    echo ""
+    echo "You can now use 'gadget --connect' to make it available as a USB gadget."
+}
+
+gadget_connect() {
+    check_root
+    load_config
+
+    # Check if image exists
+    if [ ! -f "$IMAGE" ]; then
+        echo "Error: USB image not found at $IMAGE" >&2
+        echo "Run '$0 --create' first to create and format the image." >&2
+        exit 1
+    fi
+
+    if [ -d "$F" ]; then
+        echo "USB flash gadget already exists, attempting to remount"
+        echo "" > "$F/UDC"
+        echo "$(ls /sys/class/udc)" > "$F/UDC"
+        exit 0
+    fi
+
+    echo "Loading kernel modules..."
+    modprobe libcomposite
+
+    echo "Setting up USB gadget..."
+    mkdir -p "$F"
+
+    echo "$VENDOR" > "$F/idVendor"
+    echo "$PRODUCT_ID" > "$F/idProduct"
+
+    echo "$BCD_DEVICE" > "$F/bcdDevice"
+    echo "$BCD_USB" > "$F/bcdUSB"
+
+    mkdir -p "$F/strings/0x409"
+
+    echo "$SERIAL" > "$F/strings/0x409/serialnumber"
+    echo "$MANUFACTURER" > "$F/strings/0x409/manufacturer"
+    echo "$PRODUCT" > "$F/strings/0x409/product"
+
+    mkdir -p "$F/configs/c.1"
+    mkdir -p "$F/configs/c.1/strings/0x409"
+
+    echo "$CONFIGURATION" > "$F/configs/c.1/strings/0x409/configuration"
+    echo "$MAX_POWER" > "$F/configs/c.1/MaxPower"
+
+    mkdir -p "$F/functions/mass_storage.usb0"
+
+    echo 1 > "$F/functions/mass_storage.usb0/stall"
+    echo 1 > "$F/functions/mass_storage.usb0/lun.0/removable"
+    echo 0 > "$F/functions/mass_storage.usb0/lun.0/ro"
+    echo "$IMAGE" > "$F/functions/mass_storage.usb0/lun.0/file"
+
+    ln -s "$F/functions/mass_storage.usb0" "$F/configs/c.1/"
+
+    echo "$(ls /sys/class/udc)" > "$F/UDC"
+    echo "USB gadget connected successfully!"
+    echo "The virtual USB drive should now appear on the host computer."
+}
+
+gadget_disconnect() {
+    check_root
+    load_config
+
+    [ -d "$F" ] || exit 0
+
+    echo "Disconnecting USB gadget..."
+    echo "" > "$F/UDC"
+    rm -f "$F/configs/c.1/mass_storage.usb0"
+    echo "" > "$F/functions/mass_storage.usb0/lun.0/file"
+    rmdir "$F/functions/mass_storage.usb0"
+    rmdir "$F/configs/c.1/strings/0x409"
+    rmdir "$F/configs/c.1"
+    rmdir "$F/strings/0x409"
+    rmdir "$F"
+
+    echo "USB gadget disconnected."
+}
+
+gadget_status() {
+    load_config
+
+    echo "USB Gadget Status"
+    echo "-----------------"
+
+    # Image info
+    if [ -f "$IMAGE" ]; then
+        echo "Image file:    $IMAGE"
+        echo "Image size:    $(ls -lh "$IMAGE" | awk '{print $5}') (apparent)"
+        echo "Disk usage:    $(du -h "$IMAGE" | cut -f1)"
+
+        # Check if image has partitions
+        if command -v fdisk >/dev/null 2>&1; then
+            local fdisk_out
+            fdisk_out=$(fdisk -l "$IMAGE" 2>/dev/null | grep "^${IMAGE}" || true)
+            if [ -n "$fdisk_out" ]; then
+                echo "Partitioned:   Yes"
+                echo "Filesystem:    $(blkid "$IMAGE"* 2>/dev/null | head -1 | grep -o 'TYPE="[^"]*"' | cut -d'"' -f2 || echo "Unknown")"
+            else
+                echo "Partitioned:   No (run --create to partition)"
+            fi
+        fi
+        echo ""
+    else
+        echo "Image file:    Not found (run --create first)"
+        echo ""
+    fi
+
+    # Gadget status
+    if [ ! -d "$F" ]; then
+        echo "Gadget:        Not configured"
+    else
+        if [ -n "$(cat "$F/UDC" 2>/dev/null)" ]; then
+            echo "USB Gadget:    Connected"
+            echo "UDC:           $(cat "$F/UDC")"
+        else
+            echo "USB Gadget:    Disconnected"
+        fi
+    fi
+}
+
+usage() {
+    cat << EOF
+Usage: $0 [OPTION]
+
+Configuration File: /etc/gadget-config
+
+Options:
+  create       Create and format the virtual USB image (FAT32)
+  connect      Connect the USB gadget to the host
+  disconnect   Disconnect and remove the USB gadget
+  status       Display the current status of the USB gadget
+  help         Display this help message
+
+Examples:
+  sudo $0 create       # Create and format the virtual USB drive
+  sudo $0 connect      # Make it available to the host computer
+  sudo $0 disconnect   # Disconnect from host
+  $0 status           # Check current status
+
+EOF
+}
+
+# Main argument parsing
+arg="${1:-}"
+
+# Normalize: strip leading "--" if present
+case "$arg" in
+  --*) arg="${arg#--}" ;;
+esac
+
+case "$arg" in
+  create)
+    gadget_create
+    ;;
+  connect)
+    gadget_connect
+    ;;
+  disconnect)
+    gadget_disconnect
+    ;;
+  status)
+    gadget_status
+    ;;
+  help|-h)
+    usage
+    ;;
+  "")
+    echo "Error: No option specified." >&2
+    usage
+    exit 1
+    ;;
+  *)
+    echo "Error: Unknown option '${1}'" >&2
+    usage
+    exit 1
+    ;;
+esac

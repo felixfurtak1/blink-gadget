@@ -1,0 +1,333 @@
+#!/bin/bash
+
+set -e
+
+# Configuration file location (adjust path as needed)
+CONFIG_FILE="${GADGET_CONFIG:-/etc/gadget-config}"
+[ -f "$CONFIG_FILE" ] || CONFIG_FILE="$(dirname "$0")/gadget-config"
+
+# Load configuration
+load_config() {
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "Error: Configuration file not found at $CONFIG_FILE" >&2
+        exit 1
+    fi
+    source "$CONFIG_FILE"
+}
+
+check_root() {
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "Error: This script must be run as root (use sudo)." >&2
+        exit 1
+    fi
+}
+
+# Set up loop device for the image
+setup_loop() {
+    local image="$1"
+
+    # Check if image exists
+    if [ ! -f "$image" ]; then
+        echo "Error: Image file '$image' not found." >&2
+        exit 1
+    fi
+
+    # Check if loop device already exists for this image
+    local existing_loop
+    existing_loop=$(losetup -j "$image" 2>/dev/null | cut -d: -f1 || true)
+    if [ -n "$existing_loop" ]; then
+        echo "Loop device already exists: $existing_loop"
+        echo "$existing_loop"
+        return 0
+    fi
+
+    # Create new loop device with partition scanning
+    local loop_device
+    loop_device=$(losetup --show -f -P "$image" 2>/dev/null)
+
+    if [ -z "$loop_device" ]; then
+        echo "Error: Failed to set up loop device for $image" >&2
+        exit 1
+    fi
+
+    echo "$loop_device"
+}
+
+# Find the first partition on a loop device
+find_partition() {
+    local loop_device="$1"
+    local part_device
+
+    # Wait briefly for kernel to detect partitions
+    sleep 0.1
+
+    # Try common partition naming patterns
+    if [ -e "${loop_device}p1" ]; then
+        part_device="${loop_device}p1"
+    elif [ -e "${loop_device}1" ]; then
+        part_device="${loop_device}1"
+    else
+        echo "Error: No partition found on $loop_device" >&2
+        echo "Available devices:"
+        ls -l "${loop_device}"* 2>/dev/null || echo "  None found"
+        return 1
+    fi
+
+    echo "$part_device"
+}
+
+# Clean up loop device
+cleanup_loop() {
+    local image="$1"
+    local loop_device
+
+    # Find loop device for this image
+    loop_device=$(losetup -j "$image" 2>/dev/null | cut -d: -f1)
+
+    if [ -n "$loop_device" ]; then
+        # Check if any partition is mounted
+        for part in "${loop_device}"*; do
+            if mountpoint -q "$part" 2>/dev/null; then
+                umount "$part" 2>/dev/null || true
+            fi
+        done
+
+        # Detach the loop device
+        losetup -d "$loop_device" 2>/dev/null || true
+    fi
+}
+
+mirror_mount() {
+    check_root
+    load_config
+
+    # Check if already mounted
+    if mountpoint -q "$MIRROR_MOUNT" 2>/dev/null; then
+        echo "Mirror is already mounted at $MIRROR_MOUNT"
+        exit 0
+    fi
+
+    # Check the image exists
+    if [ ! -f "$IMAGE" ]; then
+        echo "Error: Backing image '$IMAGE' not found." >&2
+        exit 1
+    fi
+
+    # Set up loop device with partition scanning
+    echo "Setting up loop device..."
+    local loop_device
+    loop_device=$(setup_loop "$IMAGE")
+
+    # Find the partition
+    echo "Detecting partition..."
+    local part_device
+    if ! part_device=$(find_partition "$loop_device"); then
+        # Clean up loop device if no partition found
+        losetup -d "$loop_device" 2>/dev/null || true
+        exit 1
+    fi
+
+    echo "Found partition: $part_device"
+
+    # Create the mount point if required
+    mkdir -p "$MIRROR_MOUNT"
+
+    # Mount the partition read-only
+    mount -o ro "$part_device" "$MIRROR_MOUNT"
+
+    echo "Mounted $part_device on $MIRROR_MOUNT (read-only)"
+
+    # Store loop device info for unmount
+    echo "$loop_device" > /tmp/mirror-loop-$$
+}
+
+mirror_unmount() {
+    check_root
+    load_config
+
+    # Check if mounted
+    if ! mountpoint -q "$MIRROR_MOUNT" 2>/dev/null; then
+        echo "Mirror is not mounted at $MIRROR_MOUNT"
+        # Still try to clean up any lingering loop devices
+        cleanup_loop "$IMAGE"
+        exit 0
+    fi
+
+    umount "$MIRROR_MOUNT"
+    echo "Unmounted $MIRROR_MOUNT"
+
+    # Clean up loop device
+    echo "Removing loop device..."
+    cleanup_loop "$IMAGE"
+}
+
+mirror_refresh() {
+    check_root
+    load_config
+
+    # Unmount if mounted
+    if mountpoint -q "$MIRROR_MOUNT" 2>/dev/null; then
+        # Count files before
+        before_count=$(ls "$MIRROR_MOUNT/blink/*/*/*" 2>/dev/null | wc -l)
+        echo "Unmounting $MIRROR_MOUNT..."
+        umount "$MIRROR_MOUNT"
+
+        # Clean up loop device
+        cleanup_loop "$IMAGE"
+    else
+        echo "Mirror was not mounted."
+    fi
+
+    # Remount
+    echo "Remounting $IMAGE on $MIRROR_MOUNT (read-only)..."
+
+    # Check the image exists
+    if [ ! -f "$IMAGE" ]; then
+        echo "Error: Backing image '$IMAGE' not found." >&2
+        exit 1
+    fi
+
+    # Set up loop device with partition scanning
+    echo "Setting up loop device..."
+    local loop_device
+    loop_device=$(setup_loop "$IMAGE")
+
+    # Find the partition
+    echo "Detecting partition..."
+    local part_device
+    if ! part_device=$(find_partition "$loop_device"); then
+        losetup -d "$loop_device" 2>/dev/null || true
+        exit 1
+    fi
+
+    echo "Found partition: $part_device"
+
+    # Mount the partition read-only
+    mkdir -p "$MIRROR_MOUNT"
+    mount -o ro "$part_device" "$MIRROR_MOUNT"
+    echo "Mirror refreshed and mounted at $MIRROR_MOUNT"
+
+    # Count files after
+    after_count=$(ls "$MIRROR_MOUNT/blink/*/*/*" 2>/dev/null | wc -l)
+
+    # Count new files (just the difference in counts)
+    new_count=$((after_count - before_count))
+    echo "Number of new files: $new_count"
+
+    # If you need the actual list of new files:
+    #if [ $new_count -gt 0 ]; then
+    #    echo "New files:"
+    #    comm -13 <(ls "$MIRROR_MOUNT/blink/*/*/*" 2>/dev/null | sort) \
+    #             <(ls "$MIRROR_MOUNT/blink/*/*/*" 2>/dev/null | sort)
+    #fi
+
+}
+
+mirror_status() {
+    load_config
+
+    echo "Mirror Status"
+    echo "-------------"
+
+    # Image status
+    if [ ! -f "$IMAGE" ]; then
+        echo "Image:         Not found ($IMAGE)"
+    else
+        echo "Image:         $IMAGE"
+        echo "Image size:    $(du -h "$IMAGE" | cut -f1)"
+
+        # Loop device status
+        local loop_device
+        loop_device=$(losetup -j "$IMAGE" 2>/dev/null | cut -d: -f1)
+        if [ -n "$loop_device" ]; then
+            echo "Loop device:   $loop_device"
+
+            # Show partition devices if available
+            if ls "${loop_device}"* >/dev/null 2>&1; then
+                echo "Partitions:"
+                for part in "${loop_device}"*; do
+                    local part_info=""
+                    if [ -b "$part" ]; then
+                        part_info=$(lsblk -n -o NAME,SIZE,FSTYPE,LABEL "$part" 2>/dev/null | tail -1)
+                        echo "  $part_info"
+                    fi
+                done
+            fi
+        else
+            echo "Loop device:   Not set up"
+        fi
+
+        # Partition info using fdisk
+        echo ""
+        if command -v fdisk >/dev/null 2>&1; then
+            echo "Partition Table:"
+            fdisk -l "$IMAGE" 2>/dev/null | grep "^${IMAGE}" || echo "  No partitions found"
+        fi
+    fi
+
+    # Mount status
+    echo ""
+    if mountpoint -q "$MIRROR_MOUNT" 2>/dev/null; then
+        echo "Mount point:   $MIRROR_MOUNT (mounted read-only)"
+        echo "Mount info:    $(findmnt "$MIRROR_MOUNT" -n -o SOURCE,TARGET,FSTYPE,OPTIONS 2>/dev/null)"
+        echo "Disk usage:    $(df -h "$MIRROR_MOUNT" | tail -1 | awk '{print $3 "/" $2 " (" $5 ")"}')"
+    else
+        echo "Mount point:   $MIRROR_MOUNT (not mounted)"
+    fi
+}
+
+usage() {
+    cat << EOF
+Usage: $0 [OPTION]
+
+Options:
+  mount        Mount the gadget image as read-only mirror (uses loop device)
+  unmount      Unmount the mirror and clean up loop device
+  refresh      Unmount and remount the mirror (to see new changes)
+  status       Display the current status of the mirror
+  help         Display this help message
+
+Examples:
+  sudo $0 mount
+  sudo $0 unmount
+  sudo $0 refresh
+  $0 status
+
+EOF
+}
+
+# Main argument parsing
+arg="${1:-}"
+
+# Normalize: strip leading "--" if present
+case "$arg" in
+  --*) arg="${arg#--}" ;;
+esac
+
+case "$arg" in
+  mount)
+    mirror_mount
+    ;;
+  unmount)
+    mirror_unmount
+    ;;
+  refresh)
+    mirror_refresh
+    ;;
+  status)
+    mirror_status
+    ;;
+  help|-h)
+    usage
+    ;;
+  "")
+    echo "Error: No option specified." >&2
+    usage
+    exit 1
+    ;;
+  *)
+    echo "Error: Unknown option '$1'" >&2
+    usage
+    exit 1
+    ;;
+esac

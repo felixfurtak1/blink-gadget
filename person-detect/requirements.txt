@@ -1,0 +1,21 @@
+# These should be installed with --no-deps option to avoid excessive depends
+# Download torch and torchvision from pytorch directly
+cycler==0.12.1
+fonttools==4.63.0
+kiwisolver==1.5.0
+matplotlib==3.11.0
+mpmath==1.4.1
+numpy==2.5.0
+opencv-python-headless==5.0.0.93
+packaging==26.2
+pillow==12.3.0
+pyparsing==3.3.2
+python-dateutil==2.9.0.post0
+PyYAML==6.0.3
+six==1.17.0
+sympy==1.14.0
+torch==2.12.1+cpu
+torchvision==0.27.1+cpu
+typing_extensions==4.16.0
+ultralytics-opencv-headless==8.4.87
+

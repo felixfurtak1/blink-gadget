@@ -1,0 +1,21 @@
+# /etc/systemd/system/person-detect.timer
+
+[Unit]
+Description=Timer for mirror refresh and person detection
+Requires=person-detect.service
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=10min
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
+
+# Setup:
+#     sudo cp person-detect.timer /etc/systemd/system
+#     sudo systemctl daemon-reload
+#     sudo systemctl restart person-detect.timer
+
+# Check status:
+#     systemctl list-timers 

@@ -1,0 +1,18 @@
+# /etc/systemd/system/gadget.service
+[Unit]
+Description=Run gadget connect at startup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gadget connect
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+
+#sudo systemctl daemon-reload
+#sudo systemctl enable gadget.service
+#systemctl status gadget.service
+#journalctl -u gadget.service

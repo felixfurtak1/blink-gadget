@@ -1,0 +1,20 @@
+# /etc/systemd/system/web-server.service
+[Unit]
+Description=Run busybox web server service at startup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=blink
+Group=blink
+Type=oneshot
+ExecStart=/usr/bin/busybox httpd -p 8080 -h /srv/www
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+
+#sudo cp web-server.service /etc/systemd/system
+#sudo systemctl daemon-reload
+#sudo systemctl enable web-server.service
+#systemctl status web-server.service

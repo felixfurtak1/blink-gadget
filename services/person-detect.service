@@ -1,0 +1,23 @@
+# /etc/systemd/system/person-detect.service
+
+[Unit]
+Description=Mirror refresh and person detection
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=blink
+Group=blink
+ExecStart=/usr/bin/sudo /usr/local/bin/mirror refresh
+ExecStart=/opt/blink-gadget/person-detect.sh
+StandardOutput=journal
+StandardError=journal
+
+# Setup
+#     replace User / Group fields with correct username
+#     sudo cp person-detect.service /etc/systemd/system
+#     sudo systemctl daemon-reload
+
+# Check status: 
+#     systemctl status person-detect.service
+#     journalctl -u person-detect.service 
