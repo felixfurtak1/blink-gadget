@@ -22,7 +22,7 @@ PROJECT_HOME="/opt/blink-gadget"
 VENV="$PROJECT_HOME/venv"
 PIPTEMP="$PROJECT_HOME/tmp"
 
-# Image web serve location
+# Web serve location
 WWW="/srv/www"
 
 # Root-level operations
@@ -41,7 +41,7 @@ chmod 644 "$CONFIG_DIR/gadget-config"
 echo "Creating project directory $PROJECT_HOME..."
 mkdir -p "$PROJECT_HOME"
 
-echo "Creating image thumbnail directory $WWW..."
+echo "Creating web server directory $WWW..."
 mkdir -p "$WWW"
 
 echo "Changing ownership of $PROJECT_HOME and $WWW to user: $ORIGINAL_USER..."
@@ -52,7 +52,11 @@ chown "$ORIGINAL_USER:$ORIGINAL_USER" "$WWW"
 echo "Setting up Python virtual environment as user: $ORIGINAL_USER..."
 
 sudo -u "$ORIGINAL_USER" -H bash << EOF
-# Create the temp directory in userspace
+
+echo "Creating image thumbnail directory $WWW/images"
+mkdir -p "$WWW/images"
+
+echo "Creating temporary directory for PIP $PIPTEMP"
 mkdir -p "$PIPTEMP"
 
 python3 -m venv "$VENV"

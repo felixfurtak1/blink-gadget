@@ -41,6 +41,7 @@ h2, h3 { font-size: 1.2em; margin: 10px 0; }
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     cursor: pointer;
+    position: relative;
 }
 .img-item img {
     width: 100%;
@@ -48,6 +49,17 @@ h2, h3 { font-size: 1.2em; margin: 10px 0; }
     max-height: 200px;
     object-fit: contain;
     border-radius: 4px;
+}
+.img-item .video-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7em;
+    pointer-events: none;
 }
 .breadcrumb {
     background: #e8e8e8;
@@ -129,10 +141,16 @@ em {
     touch-action: none;
 }
 .image-viewer img {
-    max-width: 95%;
-    max-height: 95%;
+    max-width: 80%;
+    max-height: 80%;
     object-fit: contain;
     pointer-events: none;
+}
+.image-viewer video {
+    max-width: 80%;
+    max-height: 80%;
+    object-fit: contain;
+    background: #000;
 }
 .image-viewer .close {
     position: absolute;
@@ -174,6 +192,32 @@ em {
     color: rgba(255,255,255,0.7);
     font-size: 14px;
 }
+.image-viewer .video-btn {
+    position: absolute;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: 2px solid white;
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-size: 16px;
+    cursor: pointer;
+    min-height: 44px;
+    min-width: 44px;
+    touch-action: manipulation;
+    z-index: 10000;
+}
+.image-viewer .video-btn:hover {
+    background: rgba(255,255,255,0.3);
+}
+.image-viewer .video-btn:active {
+    transform: scale(0.95);
+}
+.image-viewer .video-btn.hidden {
+    display: none;
+}
 
 /* Mobile-specific adjustments */
 @media (max-width: 600px) {
@@ -198,6 +242,15 @@ em {
         font-size: 0.85em;
         min-height: 44px;
     }
+    .image-viewer img, .image-viewer video {
+        max-width: 95%;
+        max-height: 75%;
+    }
+    .image-viewer .video-btn {
+        bottom: 60px;
+        padding: 10px 20px;
+        font-size: 14px;
+    }
 }
 
 @media (max-width: 400px) {
@@ -212,7 +265,7 @@ em {
 echo "</head><body>"
 
 # Get the current directory from query string
-CURRENT_DIR="/srv/www/blink"
+CURRENT_DIR="/srv/www/images/blink"
 SHOW_RECENT=0
 
 if [ -n "$QUERY_STRING" ]; then
@@ -222,23 +275,23 @@ if [ -n "$QUERY_STRING" ]; then
     else
         DIR_ARG="${QUERY_STRING#dir=}"
         if [ -n "$DIR_ARG" ]; then
-            CURRENT_DIR="/srv/www/blink$DIR_ARG"
+            CURRENT_DIR="/srv/www/images/blink$DIR_ARG"
         fi
     fi
 fi
 
 # Sanitize - prevent directory traversal
 case "$CURRENT_DIR" in
-    /srv/www/blink/*)
+    /srv/www/images/blink/*)
         CURRENT_DIR=$(echo "$CURRENT_DIR" | sed 's|//*|/|g')
         ;;
     *)
-        CURRENT_DIR="/srv/www/blink"
+        CURRENT_DIR="/srv/www/images/blink"
         ;;
 esac
 
 if [ ! -d "$CURRENT_DIR" ]; then
-    CURRENT_DIR="/srv/www/blink"
+    CURRENT_DIR="/srv/www/images/blink"
 fi
 
 echo "<h1>📷 Blink Gadget</h1>"
@@ -247,8 +300,8 @@ echo "<h1>📷 Blink Gadget</h1>"
 echo "<div class='nav-links'>"
 # Get parent directory for "Up" button
 PARENT_DIR="${CURRENT_DIR%/*}"
-if [ "$CURRENT_DIR" != "/srv/www/blink" ] && [ "$CURRENT_DIR" != "/srv/www/blink/" ]; then
-    PARENT_REL="${PARENT_DIR#/srv/www/blink}"
+if [ "$CURRENT_DIR" != "/srv/www/images/blink" ] && [ "$CURRENT_DIR" != "/srv/www/images/blink/" ]; then
+    PARENT_REL="${PARENT_DIR#/srv/www/images/blink}"
     echo "<a href='?dir=$PARENT_REL'>⬆ Up</a>"
 fi
 echo "<a href='?dir='>📁 Root</a>"
@@ -260,11 +313,22 @@ if [ $SHOW_RECENT -eq 1 ]; then
     echo "<h2>30 Most Recent Events</h2>"
     echo "<div class='img-grid'>"
 
-    ls -t /srv/www/blink/*/*/* 2>/dev/null | head -30 | while read img; do
+    ls -t /srv/www/images/blink/*/*/* 2>/dev/null | head -30 | while read img; do
         if [ -f "$img" ]; then
             url="${img#/srv/www}"
-            echo "<div class='img-item'>"
+            # Check for companion video
+            video_path="${img#/srv/www/images/blink}"
+            video_path="/srv/www/videos/blink$video_path"
+            video_path="${video_path%.*}.mp4"
+            has_video=0
+            if [ -f "$video_path" ]; then
+                has_video=1
+            fi
+            echo "<div class='img-item' data-video='$has_video'>"
             echo "<a href='$url'><img src='$url' loading='lazy'></a>"
+            if [ $has_video -eq 1 ]; then
+                echo "<span class='video-badge'>🎬</span>"
+            fi
             echo "</div>"
         fi
     done
@@ -276,7 +340,7 @@ else
     echo "<div class='breadcrumb'>📂 <a href='?dir='>root</a>"
 
     # Build breadcrumb by splitting path manually
-    CURRENT_DIR_NO_PREFIX="${CURRENT_DIR#/srv/www/blink}"
+    CURRENT_DIR_NO_PREFIX="${CURRENT_DIR#/srv/www/images/blink}"
     if [ -n "$CURRENT_DIR_NO_PREFIX" ] && [ "$CURRENT_DIR_NO_PREFIX" != "/" ]; then
         CURRENT_DIR_NO_PREFIX="${CURRENT_DIR_NO_PREFIX#/}"
 
@@ -309,7 +373,7 @@ else
         echo "$DIR_LIST" | while read dir; do
             if [ -d "$dir" ]; then
                 dirname=$(basename "$dir")
-                rel_path="${dir#/srv/www/blink}"
+                rel_path="${dir#/srv/www/images/blink}"
                 rel_path="${rel_path%/}"
                 echo "<div class='dir'><a href='?dir=$rel_path'>📁 $dirname/</a></div>"
             fi
@@ -330,8 +394,19 @@ else
         echo "$IMAGE_LIST" | while read img; do
             if [ -f "$img" ]; then
                 url="${img#/srv/www}"
-                echo "<div class='img-item'>"
+                # Check for companion video
+                video_path="${img#/srv/www/images/blink}"
+                video_path="/srv/www/videos/blink$video_path"
+                video_path="${video_path%.*}.mp4"
+                has_video=0
+                if [ -f "$video_path" ]; then
+                    has_video=1
+                fi
+                echo "<div class='img-item' data-video='$has_video'>"
                 echo "<a href='$url'><img src='$url' loading='lazy'></a>"
+                if [ $has_video -eq 1 ]; then
+                    echo "<span class='video-badge'>🎬</span>"
+                fi
                 echo "</div>"
             fi
         done
@@ -343,8 +418,8 @@ else
     echo "<p>"
     # Get parent directory for "Up" button
     PARENT_DIR="${CURRENT_DIR%/*}"
-    if [ "$CURRENT_DIR" != "/srv/www/blink" ] && [ "$CURRENT_DIR" != "/srv/www/blink/" ]; then
-        PARENT_REL="${PARENT_DIR#/srv/www/blink}"
+    if [ "$CURRENT_DIR" != "/srv/www/images/blink" ] && [ "$CURRENT_DIR" != "/srv/www/images/blink/" ]; then
+        PARENT_REL="${PARENT_DIR#/srv/www/images/blink}"
         echo "<a href='?dir=$PARENT_REL'>⬆ Up</a> "
     fi
     echo "<a href='?dir='>📁 Root</a>"
@@ -352,18 +427,25 @@ else
     echo "</p>"
 fi
 
-# Single JavaScript for both views
+# Enhanced JavaScript with video support
 echo "<script>
 (function() {
     var currentIndex = 0;
     var imageList = [];
+    var videoList = [];
     var startX = 0;
     var startY = 0;
     var isSwiping = false;
     var isRecentView = window.location.search.indexOf('recent') !== -1;
+    var isVideoMode = false;
 
-    document.querySelectorAll('.img-item a').forEach(function(link) {
-        imageList.push(link.getAttribute('href'));
+    document.querySelectorAll('.img-item').forEach(function(item, index) {
+        var link = item.querySelector('a');
+        if (link) {
+            imageList.push(link.getAttribute('href'));
+            var hasVideo = item.getAttribute('data-video') === '1';
+            videoList.push(hasVideo);
+        }
     });
 
     var urlParams = new URLSearchParams(window.location.search);
@@ -380,6 +462,7 @@ echo "<script>
         link.addEventListener('click', function(e) {
             e.preventDefault();
             currentIndex = index;
+            isVideoMode = false;
             var baseUrl = window.location.pathname;
             var params = isRecentView ? 'recent' : 'dir=' + (urlParams.get('dir') || '');
             var newUrl = baseUrl + '?' + params + '&view=' + encodeURIComponent(this.getAttribute('href'));
@@ -387,6 +470,14 @@ echo "<script>
             showViewer();
         });
     });
+
+    function getVideoPath(imagePath) {
+        // imagePath comes as /images/blink/26-07/26-07-05/file.jpg
+        // Convert to /videos/blink/26-07/26-07-05/file.mp4
+        var videoPath = imagePath.replace('/images/blink/', '/videos/blink/');
+        videoPath = videoPath.replace(/\.[^.]+$/, '.mp4');
+        return videoPath;
+    }
 
     function showViewer() {
         if (imageList.length === 0) return;
@@ -423,14 +514,49 @@ echo "<script>
         });
         viewer.appendChild(next);
 
+        // Create container for both image and video
+        var mediaContainer = document.createElement('div');
+        mediaContainer.style.position = 'relative';
+        mediaContainer.style.width = '100%';
+        mediaContainer.style.height = '100%';
+        mediaContainer.style.display = 'flex';
+        mediaContainer.style.justifyContent = 'center';
+        mediaContainer.style.alignItems = 'center';
+
         var img = document.createElement('img');
         img.id = 'viewerImage';
-        viewer.appendChild(img);
+        img.style.maxWidth = '80%';
+        img.style.maxHeight = '80%';
+        img.style.objectFit = 'contain';
+        mediaContainer.appendChild(img);
+
+        var video = document.createElement('video');
+        video.id = 'viewerVideo';
+        video.style.maxWidth = '80%';
+        video.style.maxHeight = '80%';
+        video.style.objectFit = 'contain';
+        video.style.background = '#000';
+        video.style.display = 'none';
+        video.controls = true;
+        mediaContainer.appendChild(video);
+
+        viewer.appendChild(mediaContainer);
 
         var counter = document.createElement('div');
         counter.className = 'counter';
         counter.id = 'viewerCounter';
         viewer.appendChild(counter);
+
+        // Video toggle button
+        var videoBtn = document.createElement('button');
+        videoBtn.className = 'video-btn';
+        videoBtn.textContent = '🎬 Play Video';
+        videoBtn.id = 'videoBtn';
+        videoBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleVideo();
+        });
+        viewer.appendChild(videoBtn);
 
         document.body.appendChild(viewer);
 
@@ -472,13 +598,45 @@ echo "<script>
         if (imageList.length === 0) return;
 
         var img = document.getElementById('viewerImage');
+        var video = document.getElementById('viewerVideo');
         var counter = document.getElementById('viewerCounter');
         var prevBtn = document.querySelector('.nav-btn.prev');
         var nextBtn = document.querySelector('.nav-btn.next');
+        var videoBtn = document.getElementById('videoBtn');
+
+        var currentImage = imageList[currentIndex];
+        var hasVideo = videoList[currentIndex];
 
         if (img) {
-            img.src = imageList[currentIndex];
+            img.src = currentImage;
+            img.style.display = isVideoMode ? 'none' : 'block';
         }
+
+        if (video) {
+            if (hasVideo && isVideoMode) {
+                var videoPath = getVideoPath(currentImage);
+                video.src = videoPath;
+                video.style.display = 'block';
+                video.load();
+                video.play().catch(function(e) {
+                    console.log('Auto-play prevented:', e);
+                });
+            } else {
+                video.style.display = 'none';
+                video.pause();
+                video.src = '';
+            }
+        }
+
+        if (videoBtn) {
+            if (hasVideo) {
+                videoBtn.style.display = 'block';
+                videoBtn.textContent = isVideoMode ? '📷 Show Image' : '🎬 Play Video';
+            } else {
+                videoBtn.style.display = 'none';
+            }
+        }
+
         if (counter) {
             counter.textContent = (currentIndex + 1) + ' / ' + imageList.length;
         }
@@ -506,8 +664,16 @@ echo "<script>
         var urlParams = new URLSearchParams(window.location.search);
         var baseUrl = window.location.pathname;
         var params = isRecentView ? 'recent' : 'dir=' + (urlParams.get('dir') || '');
-        var newUrl = baseUrl + '?' + params + '&view=' + encodeURIComponent(imageList[currentIndex]);
+        var newUrl = baseUrl + '?' + params + '&view=' + encodeURIComponent(currentImage);
+        if (isVideoMode) {
+            newUrl += '&video=1';
+        }
         window.history.replaceState({}, '', newUrl);
+    }
+
+    function toggleVideo() {
+        isVideoMode = !isVideoMode;
+        updateImage();
     }
 
     function navigate(direction) {
@@ -516,12 +682,18 @@ echo "<script>
             return;
         }
         currentIndex = newIndex;
+        isVideoMode = false;
         updateImage();
     }
 
     function hideViewer() {
         var viewer = document.getElementById('imageViewer');
         if (viewer) {
+            var video = document.getElementById('viewerVideo');
+            if (video) {
+                video.pause();
+                video.src = '';
+            }
             viewer.remove();
         }
         document.removeEventListener('keydown', keyHandler);
@@ -544,6 +716,19 @@ echo "<script>
                 navigate(1);
                 e.preventDefault();
             }
+        } else if (e.key === 'v' || e.key === 'V') {
+            toggleVideo();
+            e.preventDefault();
+        } else if (e.key === ' ' && isVideoMode) {
+            var video = document.getElementById('viewerVideo');
+            if (video) {
+                e.preventDefault();
+                if (video.paused) {
+                    video.play();
+                } else {
+                    video.pause();
+                }
+            }
         }
     }
 
@@ -553,6 +738,19 @@ echo "<script>
             hideViewer();
         }
     });
+
+    // Check for video mode in URL
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('video') === '1') {
+        isVideoMode = true;
+        // We need to wait for viewer to be created
+        setTimeout(function() {
+            var videoBtn = document.getElementById('videoBtn');
+            if (videoBtn) {
+                toggleVideo();
+            }
+        }, 100);
+    }
 })();
 </script>"
 
