@@ -40,6 +40,7 @@ h2, h3 { font-size: 1.2em; margin: 10px 0; }
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: pointer;
 }
 .img-item img {
     width: 100%;
@@ -47,13 +48,6 @@ h2, h3 { font-size: 1.2em; margin: 10px 0; }
     max-height: 200px;
     object-fit: contain;
     border-radius: 4px;
-}
-.img-item small {
-    display: block;
-    margin-top: 5px;
-    font-size: 0.7em;
-    word-break: break-all;
-    color: #666;
 }
 .breadcrumb {
     background: #e8e8e8;
@@ -120,6 +114,67 @@ em {
     justify-content: center;
 }
 
+/* Image viewer overlay */
+.image-viewer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    touch-action: none;
+}
+.image-viewer img {
+    max-width: 95%;
+    max-height: 95%;
+    object-fit: contain;
+    pointer-events: none;
+}
+.image-viewer .close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    color: white;
+    font-size: 30px;
+    cursor: pointer;
+    z-index: 10000;
+    background: none;
+    border: none;
+    padding: 10px;
+    min-height: 44px;
+    min-width: 44px;
+}
+.image-viewer .nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255,255,255,0.5);
+    font-size: 40px;
+    cursor: pointer;
+    padding: 20px 10px;
+    background: rgba(0,0,0,0.3);
+    border: none;
+    min-height: 44px;
+    min-width: 44px;
+    touch-action: manipulation;
+}
+.image-viewer .nav-btn:hover {
+    color: white;
+    background: rgba(0,0,0,0.5);
+}
+.image-viewer .prev { left: 10px; }
+.image-viewer .next { right: 10px; }
+.image-viewer .counter {
+    position: absolute;
+    bottom: 20px;
+    color: rgba(255,255,255,0.7);
+    font-size: 14px;
+}
+
 /* Mobile-specific adjustments */
 @media (max-width: 600px) {
     body { margin: 5px; }
@@ -143,7 +198,6 @@ em {
         font-size: 0.85em;
         min-height: 44px;
     }
-    .img-item small { font-size: 0.65em; }
 }
 
 @media (max-width: 400px) {
@@ -197,97 +251,294 @@ echo "</div>"
 
 # Show 10 most recent view
 if [ $SHOW_RECENT -eq 1 ]; then
-    echo "<h2>Recent</h2>"
+    echo "<h2>10 Most Recent Events</h2>"
     echo "<div class='img-grid'>"
 
     ls -t /srv/www/blink/*/*/* 2>/dev/null | head -10 | while read img; do
         if [ -f "$img" ]; then
-            filename=$(basename "$img")
             url="${img#/srv/www}"
             echo "<div class='img-item'>"
             echo "<a href='$url'><img src='$url' loading='lazy'></a>"
-            #echo "<a href='$url' target='_blank'><img src='$url' loading='lazy'></a>"
-            #echo "<small>$filename</small>"
             echo "</div>"
         fi
     done
 
     echo "</div>"
     echo "<p><a href='?dir='>← Back to Browse</a></p>"
-    echo "</body></html>"
-    exit 0
-fi
+else
+    # Breadcrumb navigation
+    echo "<div class='breadcrumb'>📂 <a href='?dir='>root</a>"
 
-# Breadcrumb navigation
-echo "<div class='breadcrumb'>📂 <a href='?dir='>root</a>"
+    # Build breadcrumb by splitting path manually
+    CURRENT_DIR_NO_PREFIX="${CURRENT_DIR#/srv/www/blink}"
+    if [ -n "$CURRENT_DIR_NO_PREFIX" ] && [ "$CURRENT_DIR_NO_PREFIX" != "/" ]; then
+        CURRENT_DIR_NO_PREFIX="${CURRENT_DIR_NO_PREFIX#/}"
 
-# Build breadcrumb by splitting path manually
-CURRENT_DIR_NO_PREFIX="${CURRENT_DIR#/srv/www/blink}"
-if [ -n "$CURRENT_DIR_NO_PREFIX" ] && [ "$CURRENT_DIR_NO_PREFIX" != "/" ]; then
-    CURRENT_DIR_NO_PREFIX="${CURRENT_DIR_NO_PREFIX#/}"
-
-    FULL_PATH=""
-    OLD_IFS="$IFS"
-    IFS='/'
-    for part in $CURRENT_DIR_NO_PREFIX; do
-        if [ -n "$part" ]; then
-            if [ -z "$FULL_PATH" ]; then
-                FULL_PATH="/$part"
-            else
-                FULL_PATH="$FULL_PATH/$part"
+        FULL_PATH=""
+        OLD_IFS="$IFS"
+        IFS='/'
+        for part in $CURRENT_DIR_NO_PREFIX; do
+            if [ -n "$part" ]; then
+                if [ -z "$FULL_PATH" ]; then
+                    FULL_PATH="/$part"
+                else
+                    FULL_PATH="$FULL_PATH/$part"
+                fi
+                echo " › <a href='?dir=$FULL_PATH'>$part</a>"
             fi
-            echo " › <a href='?dir=$FULL_PATH'>$part</a>"
-        fi
-    done
-    IFS="$OLD_IFS"
+        done
+        IFS="$OLD_IFS"
+    fi
+
+    echo "</div>"
+
+    # Show subdirectories sorted by most recent first
+    echo "<h3>📁 Subdirectories</h3>"
+
+    DIR_LIST=$(ls -dt "$CURRENT_DIR"/*/ 2>/dev/null)
+
+    if [ -z "$DIR_LIST" ]; then
+        echo "<p><em>No subdirectories</em></p>"
+    else
+        echo "$DIR_LIST" | while read dir; do
+            if [ -d "$dir" ]; then
+                dirname=$(basename "$dir")
+                rel_path="${dir#/srv/www/blink}"
+                rel_path="${rel_path%/}"
+                echo "<div class='dir'><a href='?dir=$rel_path'>📁 $dirname/</a></div>"
+            fi
+        done
+    fi
+    echo "<br>"
+
+    # Show images in current directory (most recent first)
+    echo "<h3>🖼️ Images in $(basename "$CURRENT_DIR")</h3>"
+    echo "<div class='img-grid'>"
+
+    # Check if any images exist first
+    IMAGE_LIST=$(ls -t "$CURRENT_DIR"/*.jpg "$CURRENT_DIR"/*.jpeg "$CURRENT_DIR"/*.png "$CURRENT_DIR"/*.gif 2>/dev/null | head -20)
+
+    if [ -z "$IMAGE_LIST" ]; then
+        echo "<p><em>No images in this directory</em></p>"
+    else
+        echo "$IMAGE_LIST" | while read img; do
+            if [ -f "$img" ]; then
+                url="${img#/srv/www}"
+                echo "<div class='img-item'>"
+                echo "<a href='$url'><img src='$url' loading='lazy'></a>"
+                echo "</div>"
+            fi
+        done
+    fi
+
+    echo "</div>"
+
+    # Navigation footer
+    echo "<p><a href='?dir='>📁 Back to root</a> <a href='?recent'>🕐 Recent</a></p>"
 fi
 
-echo "</div>"
+# Single JavaScript for both views
+echo "<script>
+(function() {
+    var currentIndex = 0;
+    var imageList = [];
+    var startX = 0;
+    var startY = 0;
+    var isSwiping = false;
+    var isRecentView = window.location.search.indexOf('recent') !== -1;
 
-# Show subdirectories sorted by most recent first
-echo "<h3>📁 Subdirectories</h3>"
+    document.querySelectorAll('.img-item a').forEach(function(link) {
+        imageList.push(link.getAttribute('href'));
+    });
 
-DIR_LIST=$(ls -dt "$CURRENT_DIR"/*/ 2>/dev/null)
+    var urlParams = new URLSearchParams(window.location.search);
+    var viewImg = urlParams.get('view');
+    if (viewImg) {
+        var index = imageList.indexOf(viewImg);
+        if (index !== -1) {
+            currentIndex = index;
+            showViewer();
+        }
+    }
 
-if [ -z "$DIR_LIST" ]; then
-    echo "<p><em>No subdirectories</em></p>"
-else
-    echo "$DIR_LIST" | while read dir; do
-        if [ -d "$dir" ]; then
-            dirname=$(basename "$dir")
-            rel_path="${dir#/srv/www/blink}"
-            rel_path="${rel_path%/}"
-            echo "<div class='dir'><a href='?dir=$rel_path'>📁 $dirname/</a></div>"
-        fi
-    done
-fi
-echo "<br>"
+    document.querySelectorAll('.img-item a').forEach(function(link, index) {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            currentIndex = index;
+            var baseUrl = window.location.pathname;
+            var params = isRecentView ? 'recent' : 'dir=' + (urlParams.get('dir') || '');
+            var newUrl = baseUrl + '?' + params + '&view=' + encodeURIComponent(this.getAttribute('href'));
+            window.history.pushState({}, '', newUrl);
+            showViewer();
+        });
+    });
 
-# Show images in current directory (most recent first)
-echo "<h3>🖼️ Images in $(basename "$CURRENT_DIR")</h3>"
-echo "<div class='img-grid'>"
+    function showViewer() {
+        if (imageList.length === 0) return;
 
-# Check if any images exist first
-IMAGE_LIST=$(ls -t "$CURRENT_DIR"/*.jpg "$CURRENT_DIR"/*.jpeg "$CURRENT_DIR"/*.png "$CURRENT_DIR"/*.gif 2>/dev/null | head -20)
+        var viewer = document.createElement('div');
+        viewer.className = 'image-viewer';
+        viewer.id = 'imageViewer';
 
-if [ -z "$IMAGE_LIST" ]; then
-    echo "<p><em>No images in this directory</em></p>"
-else
-    echo "$IMAGE_LIST" | while read img; do
-        if [ -f "$img" ]; then
-            filename=$(basename "$img")
-            url="${img#/srv/www}"
-            echo "<div class='img-item'>"
-            echo "<a href='$url'><img src='$url' loading='lazy'></a>"
-            #echo "<a href='$url' target='_blank'><img src='$url' loading='lazy'></a>"
-            #echo "<small>$filename</small>"
-            echo "</div>"
-        fi
-    done
-fi
+        var close = document.createElement('button');
+        close.className = 'close';
+        close.innerHTML = '✕';
+        close.addEventListener('click', hideViewer);
+        viewer.appendChild(close);
 
-echo "</div>"
+        var prev = document.createElement('button');
+        prev.className = 'nav-btn prev';
+        prev.innerHTML = '‹';
+        prev.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (currentIndex > 0) {
+                navigate(-1);
+            }
+        });
+        viewer.appendChild(prev);
 
-# Navigation footer
-echo "<p><a href='?dir='>📁 Back to root</a> <a href='?recent'>🕐 Recent</a></p>"
+        var next = document.createElement('button');
+        next.className = 'nav-btn next';
+        next.innerHTML = '›';
+        next.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (currentIndex < imageList.length - 1) {
+                navigate(1);
+            }
+        });
+        viewer.appendChild(next);
+
+        var img = document.createElement('img');
+        img.id = 'viewerImage';
+        viewer.appendChild(img);
+
+        var counter = document.createElement('div');
+        counter.className = 'counter';
+        counter.id = 'viewerCounter';
+        viewer.appendChild(counter);
+
+        document.body.appendChild(viewer);
+
+        viewer.addEventListener('touchstart', function(e) {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            isSwiping = false;
+        }, { passive: true });
+
+        viewer.addEventListener('touchmove', function(e) {
+            if (e.touches.length === 1) {
+                var deltaX = e.touches[0].clientX - startX;
+                var deltaY = e.touches[0].clientY - startY;
+                if (Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                    isSwiping = true;
+                    e.preventDefault();
+                }
+            }
+        }, { passive: false });
+
+        viewer.addEventListener('touchend', function(e) {
+            if (isSwiping) {
+                var endX = e.changedTouches[0].clientX;
+                var deltaX = endX - startX;
+                if (deltaX < -50 && currentIndex < imageList.length - 1) {
+                    navigate(1);
+                } else if (deltaX > 50 && currentIndex > 0) {
+                    navigate(-1);
+                }
+            }
+            isSwiping = false;
+        }, { passive: true });
+
+        document.addEventListener('keydown', keyHandler);
+        updateImage();
+    }
+
+    function updateImage() {
+        if (imageList.length === 0) return;
+
+        var img = document.getElementById('viewerImage');
+        var counter = document.getElementById('viewerCounter');
+        var prevBtn = document.querySelector('.nav-btn.prev');
+        var nextBtn = document.querySelector('.nav-btn.next');
+
+        if (img) {
+            img.src = imageList[currentIndex];
+        }
+        if (counter) {
+            counter.textContent = (currentIndex + 1) + ' / ' + imageList.length;
+        }
+
+        if (prevBtn) {
+            if (currentIndex <= 0) {
+                prevBtn.style.opacity = '0.2';
+                prevBtn.style.pointerEvents = 'none';
+            } else {
+                prevBtn.style.opacity = '1';
+                prevBtn.style.pointerEvents = 'auto';
+            }
+        }
+
+        if (nextBtn) {
+            if (currentIndex >= imageList.length - 1) {
+                nextBtn.style.opacity = '0.2';
+                nextBtn.style.pointerEvents = 'none';
+            } else {
+                nextBtn.style.opacity = '1';
+                nextBtn.style.pointerEvents = 'auto';
+            }
+        }
+
+        var urlParams = new URLSearchParams(window.location.search);
+        var baseUrl = window.location.pathname;
+        var params = isRecentView ? 'recent' : 'dir=' + (urlParams.get('dir') || '');
+        var newUrl = baseUrl + '?' + params + '&view=' + encodeURIComponent(imageList[currentIndex]);
+        window.history.replaceState({}, '', newUrl);
+    }
+
+    function navigate(direction) {
+        var newIndex = currentIndex + direction;
+        if (newIndex < 0 || newIndex >= imageList.length) {
+            return;
+        }
+        currentIndex = newIndex;
+        updateImage();
+    }
+
+    function hideViewer() {
+        var viewer = document.getElementById('imageViewer');
+        if (viewer) {
+            viewer.remove();
+        }
+        document.removeEventListener('keydown', keyHandler);
+        var urlParams = new URLSearchParams(window.location.search);
+        var baseUrl = window.location.pathname;
+        var params = isRecentView ? 'recent' : 'dir=' + (urlParams.get('dir') || '');
+        window.history.replaceState({}, '', baseUrl + '?' + params);
+    }
+
+    function keyHandler(e) {
+        if (e.key === 'Escape') {
+            hideViewer();
+        } else if (e.key === 'ArrowLeft') {
+            if (currentIndex > 0) {
+                navigate(-1);
+                e.preventDefault();
+            }
+        } else if (e.key === 'ArrowRight') {
+            if (currentIndex < imageList.length - 1) {
+                navigate(1);
+                e.preventDefault();
+            }
+        }
+    }
+
+    window.addEventListener('popstate', function() {
+        var viewer = document.getElementById('imageViewer');
+        if (viewer) {
+            hideViewer();
+        }
+    });
+})();
+</script>"
+
 echo "</body></html>"
