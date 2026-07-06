@@ -363,7 +363,13 @@ cp /opt/blink-gadget/services/index-advanced.cgi /srv/www/cgi-bin/index.cgi
 chmod +x /srv/www/cgi-bin/index.cgi
 ```
 
-Access the viewer by
+Make your video files accessible to the web server by creating a symbolic link in the `/srv/www` directory
+
+```bash
+ln -s /media /srv/www/videos
+```
+
+Access the advanced viewer by
 ```bash
 http://YOUR_PI_IP:8080
 ```
@@ -375,7 +381,7 @@ http://YOUR_PI_IP:8080
 
 ## Secure Remote Access with Tailscale VPN
 
-Access your Pi and web server securely from anywhere using Tailscale (based on the open-source WireGuard protocol).
+Access your Pi and thumbnail viewer securely from anywhere using Tailscale (based on the open-source WireGuard protocol).
 
 ### Installation and Setup
 
