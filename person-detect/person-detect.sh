@@ -13,5 +13,5 @@ if [[ ! -d "$VENV" || ! -x "$PYTHON" ]]; then
   exit 1
 fi
 
-# Run using the venv's python (no need to source/activate/deactivate)
+# Run using the venv's python - no need to source/activate/deactivate
 "$PYTHON" "$SCRIPT" --input /media --output /srv/www/images --preserve --recursive --quiet
