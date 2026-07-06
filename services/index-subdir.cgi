@@ -245,16 +245,22 @@ echo "<h1>📷 Blink Gadget</h1>"
 
 # Navigation links
 echo "<div class='nav-links'>"
-echo "<a href='?dir='>📁 Browse</a>"
+# Get parent directory for "Up" button
+PARENT_DIR="${CURRENT_DIR%/*}"
+if [ "$CURRENT_DIR" != "/srv/www/blink" ] && [ "$CURRENT_DIR" != "/srv/www/blink/" ]; then
+    PARENT_REL="${PARENT_DIR#/srv/www/blink}"
+    echo "<a href='?dir=$PARENT_REL'>⬆ Up</a>"
+fi
+echo "<a href='?dir='>📁 Root</a>"
 echo "<a href='?recent'>🕐 Recent</a>"
 echo "</div>"
 
-# Show 10 most recent view
+# Show 30 most recent view
 if [ $SHOW_RECENT -eq 1 ]; then
-    echo "<h2>10 Most Recent Events</h2>"
+    echo "<h2>30 Most Recent Events</h2>"
     echo "<div class='img-grid'>"
 
-    ls -t /srv/www/blink/*/*/* 2>/dev/null | head -10 | while read img; do
+    ls -t /srv/www/blink/*/*/* 2>/dev/null | head -30 | while read img; do
         if [ -f "$img" ]; then
             url="${img#/srv/www}"
             echo "<div class='img-item'>"
@@ -264,7 +270,7 @@ if [ $SHOW_RECENT -eq 1 ]; then
     done
 
     echo "</div>"
-    echo "<p><a href='?dir='>← Back to Browse</a></p>"
+    echo "<p><a href='?dir='>📁 Root</a> <a href='?recent'>🕐 Recent</a></p>"
 else
     # Breadcrumb navigation
     echo "<div class='breadcrumb'>📂 <a href='?dir='>root</a>"
@@ -334,7 +340,16 @@ else
     echo "</div>"
 
     # Navigation footer
-    echo "<p><a href='?dir='>📁 Back to root</a> <a href='?recent'>🕐 Recent</a></p>"
+    echo "<p>"
+    # Get parent directory for "Up" button
+    PARENT_DIR="${CURRENT_DIR%/*}"
+    if [ "$CURRENT_DIR" != "/srv/www/blink" ] && [ "$CURRENT_DIR" != "/srv/www/blink/" ]; then
+        PARENT_REL="${PARENT_DIR#/srv/www/blink}"
+        echo "<a href='?dir=$PARENT_REL'>⬆ Up</a> "
+    fi
+    echo "<a href='?dir='>📁 Root</a>"
+    echo " <a href='?recent'>🕐 Recent</a>"
+    echo "</p>"
 fi
 
 # Single JavaScript for both views
