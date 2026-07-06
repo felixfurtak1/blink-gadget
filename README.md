@@ -46,7 +46,7 @@ Install **Raspberry Pi OS Lite (64-bit, trixie)** on your SD card (16GB minimum)
 
 Connect the Sync Module 2 to the Pi Zero 2W's USB OTG port (nearest the HDMI port) using a standard USB-A to Micro-B cable:
 
-![Blink Gadget](images/blink-gadget.jpg)
+![Blink Gadget](images/blink-gadget.jpg) 
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
@@ -77,7 +77,7 @@ In order to give the Blink module a little more headroom to power the Zero 2W, i
 ### Connect via SSH
 
 ```bash
-ssh <user>@<pi-ip-address>
+ssh USER@YOU_PI_IP
 ```
 
 ### Enable USB OTG on the Pi
@@ -335,7 +335,7 @@ busybox httpd -p 8080 -h /srv/www
 Access your thumbnails at:
 
 ```
-http://<your-pi-ip-address>:8080
+http://YOUR_PI_IP:8080
 ```
 
 **Note:** This server is basic and uses HTTP only (not HTTPS). Use HTTP in the URL.
@@ -354,6 +354,22 @@ Check service is loaded and enabled:
 systemctl status web-server.service
 ```
 
+## Create a More Advanced Web Server for thumbnail and video view
+
+Switch to a more more advanced, mobile viewer with thumbnail size adjusment, recent image view, date view, zoom and video view.
+
+```bash
+cp /opt/blink-gadget/services/index-advanced.cgi /srv/www/cgi-bin/index.cgi
+chmod +x /srv/www/cgi-bin/index.cgi
+```
+
+Access the viewer by
+```bash
+http://YOUR_PI_IP:8080
+```
+
+<img src="images/advanced2.jpg" width="33%" /> <img src="images/advanced1.jpg" width="33%" /> <img src="images/advanced3.jpg" width="33%" />
+
 
 ---
 
@@ -368,9 +384,13 @@ curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up
 ```
 
-Visit the generated URL, create a Tailscale account, and authenticate.
+Visit the generated URL, create a Tailscale account, and authenticate. Install Tailscale app on phone or PC.
 
 Find your Pi's Tailscale IP on the Tailscale website, then access it remotely on your phone or PC.
+
+```bash
+http://YOUR_PI_TAILSCALE_IP:8080
+```
 
 ### Check Tailscale Status, Stop Tailscale
 
