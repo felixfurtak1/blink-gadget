@@ -40,6 +40,11 @@ cat <<'EOF'
 <html><head><title>Blink Gadget</title>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
 <style>
+:root {
+    --thumb-min-size: 150px;
+    --thumb-max-height: 200px;
+}
+
 * { box-sizing: border-box; }
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
@@ -64,7 +69,7 @@ h2, h3 { font-size: 1.2em; margin: 10px 0; }
 .dir a:hover { text-decoration: underline; }
 .img-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--thumb-min-size), 1fr));
     gap: 10px;
     margin: 10px 0;
 }
@@ -81,9 +86,23 @@ h2, h3 { font-size: 1.2em; margin: 10px 0; }
 .img-item img {
     width: 100%;
     height: auto;
-    max-height: 200px;
+    max-height: var(--thumb-max-height);
     object-fit: contain;
     border-radius: 4px;
+}
+.size-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #e8e8e8;
+    padding: 8px 12px;
+    border-radius: 5px;
+    font-size: 0.9em;
+    margin-bottom: 10px;
+}
+.size-control input[type="range"] {
+    flex-grow: 1;
+    cursor: pointer;
 }
 .img-item .video-badge {
     position: absolute;
@@ -231,23 +250,37 @@ em { color: #888; font-style: italic; }
 
 /* Mobile-specific adjustments */
 @media (max-width: 600px) {
-    body { margin: 5px; }
-    h1 { font-size: 1.2em; }
-    .img-grid {
-        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-        gap: 8px;
+    :root {
+        --thumb-min-size: 120px;
+        --thumb-max-height: 150px;
     }
-    .img-item img { max-height: 150px; }
+    body { 
+        margin: 5px; 
+        font-size: 18px; /* Increase base font size for better readability */
+    }
+    h1 { font-size: 1.4em; }
+    h2, h3 { font-size: 1.2em; }
+    .img-grid { gap: 8px; }
     .dir {
-        padding: 6px 10px;
-        font-size: 0.9em;
-        margin: 3px 4px 3px 0;
+        padding: 8px 12px;
+        font-size: 1em;
+        margin: 4px 6px 4px 0;
     }
-    .breadcrumb { font-size: 0.8em; padding: 6px 8px; }
+    .breadcrumb { 
+        font-size: 0.95em; 
+        padding: 10px 12px; 
+    }
     .nav-links a, p a {
-        padding: 10px 12px;
-        font-size: 0.85em;
+        padding: 12px 15px;
+        font-size: 1em;
         min-height: 44px;
+    }
+    .size-control {
+        font-size: 1em;
+        padding: 12px;
+    }
+    .size-control input[type="range"] {
+        height: 30px; /* Larger touch target for the slider */
     }
     .image-viewer img, .image-viewer video {
         max-width: 95%;
@@ -255,24 +288,31 @@ em { color: #888; font-style: italic; }
     }
     .image-viewer .video-btn {
         bottom: 60px;
-        padding: 10px 20px;
-        font-size: 14px;
+        padding: 12px 24px;
+        font-size: 16px;
     }
 }
 
 @media (max-width: 400px) {
-    .img-grid {
-        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-        gap: 5px;
+    :root {
+        --thumb-min-size: 100px;
+        --thumb-max-height: 120px;
     }
+    body {
+        font-size: 17px; /* Slightly adjusted for very small screens */
+    }
+    .img-grid { gap: 5px; }
     .img-item { padding: 5px; }
-    .img-item img { max-height: 120px; }
 }
 </style>
 </head><body>
 EOF
 
 echo "<h1>📷 Blink Gadget</h1>"
+echo "<div class='size-control'>"
+echo "<span>🔍 Thumbnail Size:</span>"
+echo "<input type='range' id='thumbSize' min='80' max='300' value='150' step='10'>"
+echo "</div>"
 echo "<div class='nav-links'>"
 
 # Navigation links
@@ -392,6 +432,31 @@ fi
 cat <<'EOF'
 <script>
 (function() {
+    // Thumbnail size control logic
+    var sizeSlider = document.getElementById('thumbSize');
+    if (sizeSlider) {
+        var savedSize = localStorage.getItem('blinkThumbSize');
+
+        function applySize(size) {
+            document.documentElement.style.setProperty('--thumb-min-size', size + 'px');
+            document.documentElement.style.setProperty('--thumb-max-height', (size * 1.33) + 'px');
+            sizeSlider.value = size;
+        }
+
+        if (savedSize) {
+            applySize(savedSize);
+        } else {
+            // Set slider to current computed value without overriding CSS variables
+            var computedSize = window.getComputedStyle(document.documentElement).getPropertyValue('--thumb-min-size').replace('px', '').trim();
+            sizeSlider.value = computedSize || 150;
+        }
+
+        sizeSlider.addEventListener('input', function() {
+            applySize(this.value);
+            localStorage.setItem('blinkThumbSize', this.value);
+        });
+    }
+
     var currentIndex = 0;
     var imageList = [];
     var videoList = [];
