@@ -2,9 +2,44 @@
 echo "Content-type: text/html; charset=utf-8"
 echo ""
 
-echo "<html><head><title>Blink Gadget</title>"
-echo "<meta name='viewport' content='width=device-width, initial-scale=1.0'>"
-echo "<style>
+# Define base paths once for easy maintenance
+BASE_DIR="/srv/www/images/blink"
+VIDEO_DIR="/srv/www/videos/blink"
+WEB_ROOT="/srv/www"
+
+CURRENT_DIR="$BASE_DIR"
+SHOW_RECENT=0
+
+if [ -n "$QUERY_STRING" ]; then
+    if [ "$QUERY_STRING" = "recent" ]; then
+        SHOW_RECENT=1
+    else
+        DIR_ARG="${QUERY_STRING#dir=}"
+        if [ -n "$DIR_ARG" ]; then
+            CURRENT_DIR="$BASE_DIR$DIR_ARG"
+        fi
+    fi
+fi
+
+# Sanitize and resolve path to prevent directory traversal
+# Using cd and pwd resolves symlinks, normalizes slashes, and removes trailing slashes
+CURRENT_DIR=$(cd "$CURRENT_DIR" 2>/dev/null && pwd) || CURRENT_DIR="$BASE_DIR"
+case "$CURRENT_DIR" in
+    "$BASE_DIR"/*|"$BASE_DIR") ;;
+    *) CURRENT_DIR="$BASE_DIR" ;;
+esac
+
+# Helper function to check for companion video
+check_video() {
+    _cv_vpath="${VIDEO_DIR}${1#$BASE_DIR}"
+    [ -f "${_cv_vpath%.*}.mp4" ]
+}
+
+# Output Header and CSS using a Here-Doc (much cleaner than dozens of echo statements)
+cat <<'EOF'
+<html><head><title>Blink Gadget</title>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<style>
 * { box-sizing: border-box; }
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
@@ -90,12 +125,8 @@ h2, h3 { font-size: 1.2em; margin: 10px 0; }
     border-radius: 5px;
     font-size: 0.9em;
 }
-.nav-links a:hover {
-    background: #0052a3;
-}
-.nav-links a:active {
-    transform: scale(0.95);
-}
+.nav-links a:hover { background: #0052a3; }
+.nav-links a:active { transform: scale(0.95); }
 p a {
     display: inline-block;
     padding: 8px 15px;
@@ -106,16 +137,9 @@ p a {
     font-size: 0.9em;
     margin: 5px 5px 5px 0;
 }
-p a:hover {
-    background: #0052a3;
-}
-p a:active {
-    transform: scale(0.95);
-}
-em {
-    color: #888;
-    font-style: italic;
-}
+p a:hover { background: #0052a3; }
+p a:active { transform: scale(0.95); }
+em { color: #888; font-style: italic; }
 
 /* Touch-friendly improvements */
 .dir a, .nav-links a, p a {
@@ -129,10 +153,8 @@ em {
 /* Image viewer overlay */
 .image-viewer {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
     background: rgba(0,0,0,0.9);
     display: flex;
     justify-content: center;
@@ -141,21 +163,18 @@ em {
     touch-action: none;
 }
 .image-viewer img {
-    max-width: 80%;
-    max-height: 80%;
+    max-width: 80%; max-height: 80%;
     object-fit: contain;
     pointer-events: none;
 }
 .image-viewer video {
-    max-width: 80%;
-    max-height: 80%;
+    max-width: 80%; max-height: 80%;
     object-fit: contain;
     background: #000;
 }
 .image-viewer .close {
     position: absolute;
-    top: 20px;
-    right: 20px;
+    top: 20px; right: 20px;
     color: white;
     font-size: 30px;
     cursor: pointer;
@@ -180,10 +199,7 @@ em {
     min-width: 44px;
     touch-action: manipulation;
 }
-.image-viewer .nav-btn:hover {
-    color: white;
-    background: rgba(0,0,0,0.5);
-}
+.image-viewer .nav-btn:hover { color: white; background: rgba(0,0,0,0.5); }
 .image-viewer .prev { left: 10px; }
 .image-viewer .next { right: 10px; }
 .image-viewer .counter {
@@ -209,15 +225,9 @@ em {
     touch-action: manipulation;
     z-index: 10000;
 }
-.image-viewer .video-btn:hover {
-    background: rgba(255,255,255,0.3);
-}
-.image-viewer .video-btn:active {
-    transform: scale(0.95);
-}
-.image-viewer .video-btn.hidden {
-    display: none;
-}
+.image-viewer .video-btn:hover { background: rgba(255,255,255,0.3); }
+.image-viewer .video-btn:active { transform: scale(0.95); }
+.image-viewer .video-btn.hidden { display: none; }
 
 /* Mobile-specific adjustments */
 @media (max-width: 600px) {
@@ -233,10 +243,7 @@ em {
         font-size: 0.9em;
         margin: 3px 4px 3px 0;
     }
-    .breadcrumb {
-        font-size: 0.8em;
-        padding: 6px 8px;
-    }
+    .breadcrumb { font-size: 0.8em; padding: 6px 8px; }
     .nav-links a, p a {
         padding: 10px 12px;
         font-size: 0.85em;
@@ -261,47 +268,17 @@ em {
     .img-item { padding: 5px; }
     .img-item img { max-height: 120px; }
 }
-</style>"
-echo "</head><body>"
-
-# Get the current directory from query string
-CURRENT_DIR="/srv/www/images/blink"
-SHOW_RECENT=0
-
-if [ -n "$QUERY_STRING" ]; then
-    # Check if we want to show recent view
-    if [ "$QUERY_STRING" = "recent" ]; then
-        SHOW_RECENT=1
-    else
-        DIR_ARG="${QUERY_STRING#dir=}"
-        if [ -n "$DIR_ARG" ]; then
-            CURRENT_DIR="/srv/www/images/blink$DIR_ARG"
-        fi
-    fi
-fi
-
-# Sanitize - prevent directory traversal
-case "$CURRENT_DIR" in
-    /srv/www/images/blink/*)
-        CURRENT_DIR=$(echo "$CURRENT_DIR" | sed 's|//*|/|g')
-        ;;
-    *)
-        CURRENT_DIR="/srv/www/images/blink"
-        ;;
-esac
-
-if [ ! -d "$CURRENT_DIR" ]; then
-    CURRENT_DIR="/srv/www/images/blink"
-fi
+</style>
+</head><body>
+EOF
 
 echo "<h1>📷 Blink Gadget</h1>"
+echo "<div class='nav-links'>"
 
 # Navigation links
-echo "<div class='nav-links'>"
-# Get parent directory for "Up" button
 PARENT_DIR="${CURRENT_DIR%/*}"
-if [ "$CURRENT_DIR" != "/srv/www/images/blink" ] && [ "$CURRENT_DIR" != "/srv/www/images/blink/" ]; then
-    PARENT_REL="${PARENT_DIR#/srv/www/images/blink}"
+if [ "$CURRENT_DIR" != "$BASE_DIR" ] && [ "$CURRENT_DIR" != "$BASE_DIR/" ]; then
+    PARENT_REL="${PARENT_DIR#$BASE_DIR}"
     echo "<a href='?dir=$PARENT_REL'>⬆ Up</a>"
 fi
 echo "<a href='?dir='>📁 Root</a>"
@@ -309,24 +286,19 @@ echo "<a href='?recent'>🕐 Recent</a>"
 echo "</div>"
 
 # Show 30 most recent view
-if [ $SHOW_RECENT -eq 1 ]; then
+if [ "$SHOW_RECENT" -eq 1 ]; then
     echo "<h2>30 Most Recent Events</h2>"
     echo "<div class='img-grid'>"
 
-    ls -t /srv/www/images/blink/*/*/* 2>/dev/null | head -30 | while read img; do
+    ls -t "$BASE_DIR"/*/*/* 2>/dev/null | head -30 | while read img; do
         if [ -f "$img" ]; then
-            url="${img#/srv/www}"
-            # Check for companion video
-            video_path="${img#/srv/www/images/blink}"
-            video_path="/srv/www/videos/blink$video_path"
-            video_path="${video_path%.*}.mp4"
-            has_video=0
-            if [ -f "$video_path" ]; then
-                has_video=1
-            fi
-            echo "<div class='img-item' data-video='$has_video'>"
+            url="${img#$WEB_ROOT}"
+            has_video_flag=0
+            if check_video "$img"; then has_video_flag=1; fi
+
+            echo "<div class='img-item' data-video='$has_video_flag'>"
             echo "<a href='$url'><img src='$url' loading='lazy'></a>"
-            if [ $has_video -eq 1 ]; then
+            if [ "$has_video_flag" -eq 1 ]; then
                 echo "<span class='video-badge'>🎬</span>"
             fi
             echo "</div>"
@@ -339,8 +311,7 @@ else
     # Breadcrumb navigation
     echo "<div class='breadcrumb'>📂 <a href='?dir='>root</a>"
 
-    # Build breadcrumb by splitting path manually
-    CURRENT_DIR_NO_PREFIX="${CURRENT_DIR#/srv/www/images/blink}"
+    CURRENT_DIR_NO_PREFIX="${CURRENT_DIR#$BASE_DIR}"
     if [ -n "$CURRENT_DIR_NO_PREFIX" ] && [ "$CURRENT_DIR_NO_PREFIX" != "/" ]; then
         CURRENT_DIR_NO_PREFIX="${CURRENT_DIR_NO_PREFIX#/}"
 
@@ -359,12 +330,10 @@ else
         done
         IFS="$OLD_IFS"
     fi
-
     echo "</div>"
 
     # Show subdirectories sorted by most recent first
     echo "<h3>📁 Subdirectories</h3>"
-
     DIR_LIST=$(ls -dt "$CURRENT_DIR"/*/ 2>/dev/null)
 
     if [ -z "$DIR_LIST" ]; then
@@ -373,7 +342,7 @@ else
         echo "$DIR_LIST" | while read dir; do
             if [ -d "$dir" ]; then
                 dirname=$(basename "$dir")
-                rel_path="${dir#/srv/www/images/blink}"
+                rel_path="${dir#$BASE_DIR}"
                 rel_path="${rel_path%/}"
                 echo "<div class='dir'><a href='?dir=$rel_path'>📁 $dirname/</a></div>"
             fi
@@ -385,7 +354,6 @@ else
     echo "<h3>🖼️ Images in $(basename "$CURRENT_DIR")</h3>"
     echo "<div class='img-grid'>"
 
-    # Check if any images exist first
     IMAGE_LIST=$(ls -t "$CURRENT_DIR"/*.jpg "$CURRENT_DIR"/*.jpeg "$CURRENT_DIR"/*.png "$CURRENT_DIR"/*.gif 2>/dev/null | head -20)
 
     if [ -z "$IMAGE_LIST" ]; then
@@ -393,33 +361,26 @@ else
     else
         echo "$IMAGE_LIST" | while read img; do
             if [ -f "$img" ]; then
-                url="${img#/srv/www}"
-                # Check for companion video
-                video_path="${img#/srv/www/images/blink}"
-                video_path="/srv/www/videos/blink$video_path"
-                video_path="${video_path%.*}.mp4"
-                has_video=0
-                if [ -f "$video_path" ]; then
-                    has_video=1
-                fi
-                echo "<div class='img-item' data-video='$has_video'>"
+                url="${img#$WEB_ROOT}"
+                has_video_flag=0
+                if check_video "$img"; then has_video_flag=1; fi
+
+                echo "<div class='img-item' data-video='$has_video_flag'>"
                 echo "<a href='$url'><img src='$url' loading='lazy'></a>"
-                if [ $has_video -eq 1 ]; then
+                if [ "$has_video_flag" -eq 1 ]; then
                     echo "<span class='video-badge'>🎬</span>"
                 fi
                 echo "</div>"
             fi
         done
     fi
-
     echo "</div>"
 
     # Navigation footer
     echo "<p>"
-    # Get parent directory for "Up" button
     PARENT_DIR="${CURRENT_DIR%/*}"
-    if [ "$CURRENT_DIR" != "/srv/www/images/blink" ] && [ "$CURRENT_DIR" != "/srv/www/images/blink/" ]; then
-        PARENT_REL="${PARENT_DIR#/srv/www/images/blink}"
+    if [ "$CURRENT_DIR" != "$BASE_DIR" ] && [ "$CURRENT_DIR" != "$BASE_DIR/" ]; then
+        PARENT_REL="${PARENT_DIR#$BASE_DIR}"
         echo "<a href='?dir=$PARENT_REL'>⬆ Up</a> "
     fi
     echo "<a href='?dir='>📁 Root</a>"
@@ -427,8 +388,9 @@ else
     echo "</p>"
 fi
 
-# Enhanced JavaScript with video support
-echo "<script>
+# Output JavaScript and Footer using a Here-Doc
+cat <<'EOF'
+<script>
 (function() {
     var currentIndex = 0;
     var imageList = [];
@@ -752,6 +714,6 @@ echo "<script>
         }, 100);
     }
 })();
-</script>"
-
-echo "</body></html>"
+</script>
+</body></html>
+EOF
