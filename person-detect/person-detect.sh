@@ -14,4 +14,4 @@ if [[ ! -d "$VENV" || ! -x "$PYTHON" ]]; then
 fi
 
 # Run using the venv's python (no need to source/activate/deactivate)
-"$PYTHON" "$SCRIPT" --input /media --output /srv/www/images --preserve --recursive
+"$PYTHON" "$SCRIPT" --input /media --output /srv/www/images --preserve --recursive --quiet
