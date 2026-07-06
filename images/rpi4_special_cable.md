@@ -2,7 +2,7 @@
 
 Below is the special cable that you need to make for the Raspberry Pi 4 / 400 / 5 / 500 / 500+
 
-Since the Raspberry Pi Power and OTG port are on the same USB-C Connector, and the Blink Sync Module does not have enough current to power the Pi, the red wire inside the USB-C to USB-A cable must be cut.
+Since the Raspberry Pi Power and OTG port are on the same USB-C Connector, and the Blink Sync Module does not have enough current to power the Pi, **THE +5V RED WIRE INSIDE THE USB-C to USB-A CABLE MUST BE CUT**
 
 ### Cable Splice Method
 
@@ -14,7 +14,7 @@ Also try to make the splice point as close as possible to the USB-C connector in
 
 
 ```
-                                   CABLE SPLICE METHOD
+                                   Cable Splice Method
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
 │                            USB-C to Type-A Cable (Modified)                              │
 │                                                                                          │
@@ -48,7 +48,7 @@ Legend:
 An alternative approach could be to connect the external PSU directly to the Pis pin header and use a more simply modified USB-C to Type-A Cable with just the +5V (red) internal wire CUT.
 
 ```
-                              ALTERNATIVE PIN HEADER METHOD
+                          Alternative Power on Pin Header Method
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
 │                            USB-C to Type-A Cable (Modified)                              │
 │                                                                                          │
