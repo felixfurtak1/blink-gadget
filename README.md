@@ -77,7 +77,7 @@ In order to give the Blink module a little more headroom to power the Zero 2W, i
 ### Connect via SSH
 
 ```bash
-ssh USER@YOU_PI_IP
+ssh YOUR_USERNAME@YOUR_PI_IP
 ```
 
 ### Enable USB OTG on the Pi
@@ -248,7 +248,7 @@ sudoedit /etc/sudoers.d/100-mirror
 Add this line, substituting the correct username:
 
 ```
-<your_username> ALL=(root) NOPASSWD: /usr/local/bin/mirror
+YOUR_USERNAME ALL=(root) NOPASSWD: /usr/local/bin/mirror
 ```
 
 Check command runs without needing password:
