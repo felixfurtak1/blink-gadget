@@ -319,18 +319,22 @@ echo "<div class='nav-links'>"
 PARENT_DIR="${CURRENT_DIR%/*}"
 if [ "$CURRENT_DIR" != "$BASE_DIR" ] && [ "$CURRENT_DIR" != "$BASE_DIR/" ]; then
     PARENT_REL="${PARENT_DIR#$BASE_DIR}"
-    echo "<a href='?dir=$PARENT_REL'>⬆ Up</a>"
+    echo "<a href='?dir=$PARENT_REL'>📁 ⬆ Up</a>"
 fi
-echo "<a href='?dir='>📁 Root</a>"
+
+if [ "$CURRENT_DIR" = "$BASE_DIR" ]; then
+    echo "<a href='?dir='>📁 Date</a>"
+fi
+
 echo "<a href='?recent'>🕐 Recent</a>"
 echo "</div>"
 
-# Show 30 most recent view
+# Show 50 most recent view
 if [ "$SHOW_RECENT" -eq 1 ]; then
-    echo "<h2>30 Most Recent Events</h2>"
+    echo "<h2>Recent Events</h2>"
     echo "<div class='img-grid'>"
 
-    ls -t "$BASE_DIR"/*/*/* 2>/dev/null | head -30 | while read img; do
+    ls -t "$BASE_DIR"/*/*/*.jpg 2>/dev/null | head -50 | while read img; do
         if [ -f "$img" ]; then
             url="${img#$WEB_ROOT}"
             has_video_flag=0
@@ -346,10 +350,10 @@ if [ "$SHOW_RECENT" -eq 1 ]; then
     done
 
     echo "</div>"
-    echo "<p><a href='?dir='>📁 Root</a> <a href='?recent'>🕐 Recent</a></p>"
+    echo "<p><a href='?dir='>📁 Date</a> <a href='?recent'>🕐 Recent</a></p>"
 else
     # Breadcrumb navigation
-    echo "<div class='breadcrumb'>📂 <a href='?dir='>root</a>"
+    echo "<div class='breadcrumb'>📂 <a href='?dir='>blink</a>"
 
     CURRENT_DIR_NO_PREFIX="${CURRENT_DIR#$BASE_DIR}"
     if [ -n "$CURRENT_DIR_NO_PREFIX" ] && [ "$CURRENT_DIR_NO_PREFIX" != "/" ]; then
@@ -373,12 +377,9 @@ else
     echo "</div>"
 
     # Show subdirectories sorted by most recent first
-    echo "<h3>📁 Subdirectories</h3>"
     DIR_LIST=$(ls -dt "$CURRENT_DIR"/*/ 2>/dev/null)
-
-    if [ -z "$DIR_LIST" ]; then
-        echo "<p><em>No subdirectories</em></p>"
-    else
+    if [ -n "$DIR_LIST" ]; then
+        echo "<h3>📁 Subdirectories</h3>"
         echo "$DIR_LIST" | while read dir; do
             if [ -d "$dir" ]; then
                 dirname=$(basename "$dir")
@@ -388,13 +389,13 @@ else
             fi
         done
     fi
-    echo "<br>"
+#    echo "<br>"
 
     # Show images in current directory (most recent first)
     echo "<h3>🖼️ Images in $(basename "$CURRENT_DIR")</h3>"
     echo "<div class='img-grid'>"
 
-    IMAGE_LIST=$(ls -t "$CURRENT_DIR"/*.jpg "$CURRENT_DIR"/*.jpeg "$CURRENT_DIR"/*.png "$CURRENT_DIR"/*.gif 2>/dev/null | head -20)
+    IMAGE_LIST=$(ls -t "$CURRENT_DIR"/*.jpg 2>/dev/null | head -50)
 
     if [ -z "$IMAGE_LIST" ]; then
         echo "<p><em>No images in this directory</em></p>"
@@ -421,9 +422,13 @@ else
     PARENT_DIR="${CURRENT_DIR%/*}"
     if [ "$CURRENT_DIR" != "$BASE_DIR" ] && [ "$CURRENT_DIR" != "$BASE_DIR/" ]; then
         PARENT_REL="${PARENT_DIR#$BASE_DIR}"
-        echo "<a href='?dir=$PARENT_REL'>⬆ Up</a> "
+        echo "<a href='?dir=$PARENT_REL'>📁 ⬆ Up</a> "
     fi
-    echo "<a href='?dir='>📁 Root</a>"
+
+    if [ "$CURRENT_DIR" = "$BASE_DIR" ]; then
+        echo "<a href='?dir='>📁 Date</a>"
+    fi
+
     echo " <a href='?recent'>🕐 Recent</a>"
     echo "</p>"
 fi
@@ -522,6 +527,7 @@ cat <<'EOF'
         var prev = document.createElement('button');
         prev.className = 'nav-btn prev';
         prev.innerHTML = '‹';
+        prev.style.zIndex = '10001';
         prev.addEventListener('click', function(e) {
             e.stopPropagation();
             if (currentIndex > 0) {
@@ -533,6 +539,7 @@ cat <<'EOF'
         var next = document.createElement('button');
         next.className = 'nav-btn next';
         next.innerHTML = '›';
+        next.style.zIndex = '10001';
         next.addEventListener('click', function(e) {
             e.stopPropagation();
             if (currentIndex < imageList.length - 1) {
@@ -579,6 +586,7 @@ cat <<'EOF'
         videoBtn.className = 'video-btn';
         videoBtn.textContent = '🎬 Play Video';
         videoBtn.id = 'videoBtn';
+        videoBtn.style.zIndex = '10000';
         videoBtn.addEventListener('click', function(e) {
             e.stopPropagation();
             toggleVideo();
