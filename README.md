@@ -374,7 +374,7 @@ Access the advanced viewer by
 http://YOUR_PI_IP:8080
 ```
 
-<img src="images/advanced2.jpg" width="30%" /> <img src="images/advanced1.jpg" width="30%" /> <img src="images/advanced3.jpg" width="30%" />
+<img src="images/advanced2.jpg" width="32%" /> <img src="images/advanced1.jpg" width="32%" /> <img src="images/advanced3.jpg" width="32%" />
 
 
 ---
