@@ -105,11 +105,14 @@ def analyze_video(model, video_path, skip_frames, conf_threshold, size, quiet=Fa
         del results # Clean up
 
         if detections:
+            # nms person deduplication
+            detections = apply_nms(detections, iou_threshold=0.4)
+
             person_count = len(detections)
             avg_conf = sum(d[0] for d in detections) / person_count
 
-            # Score rewards multiple people: 1 person=1x, 2 people=1.5x, 3 people=2x, etc.
-            score = avg_conf * (1 + 0.5 * (person_count - 1))
+            # Simplify score with nms
+            score = person_count * avg_conf
 
             if not quiet:
                 print(f"Frame {frame_number}: {person_count} people, "
@@ -220,6 +223,36 @@ def process_video_file(model, video_path, output_dir, input_dir, skip_frames, co
         print(f"Person Count: {best_data['person_count']}, Avg Conf: {best_data['avg_conf']:.2f}")
 
     return True
+
+def apply_nms(detections, iou_threshold=0.4):
+    """
+    Removes overlapping bounding boxes using Non-Maximum Suppression (NMS).
+    This prevents a single person from being counted multiple times.
+    """
+    # Make sure cv2 is loaded
+    _ensure_cv2()
+
+    if not detections:
+        return []
+
+    # cv2.dnn.NMSBoxes expects boxes in (x, y, width, height) format
+    boxes = [(x1, y1, x2 - x1, y2 - y1) for _, (x1, y1, x2, y2) in detections]
+    scores = [conf for conf, _ in detections]
+
+    # Apply NMS. score_threshold=0.0 because we already filtered by conf_threshold
+    indices = cv2.dnn.NMSBoxes(boxes, scores, score_threshold=0.0, nms_threshold=iou_threshold)
+
+    if len(indices) > 0:
+        # Flatten indices to safely handle different OpenCV version return formats
+        flat_indices = []
+        for i in indices:
+            if isinstance(i, (list, tuple)):
+                flat_indices.append(i[0])
+            else:
+                flat_indices.append(i)
+        return [detections[i] for i in flat_indices]
+
+    return []
 
 def _ensure_cv2():
     global cv2
