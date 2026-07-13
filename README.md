@@ -425,6 +425,6 @@ With access to video files and thumbnails, you can integrate additional workflow
 
 ## Other Projects
 Other similar projects that have been developed independently of this project. Blink Gadget is the only one with object detection, but Blink Pi wins the award for the best logo ☺️
-[BlinkPi](https://github.com/OVR92/BlinkPi)
-[BlinkPiBridge](https://github.com/dwilliams6683/blinkpibridge)
+- [BlinkPi](https://github.com/OVR92/BlinkPi)
+- [BlinkPiBridge](https://github.com/dwilliams6683/blinkpibridge)
 
