@@ -421,3 +421,10 @@ With access to video files and thumbnails, you can integrate additional workflow
 ### Example Cloud Backup Options
 - Upload to any cloud provider that offers headless Linux cloud backup (e.g.Dropbox)
 - Use `rclone` with any number of other cloud providers (e.g. Create a dedicated Google photos account and upload using the [rclone google photos](https://rclone.org/googlephotos/)
+
+
+## Other Projects
+Other similar projects that have been developed independently of this project. Blink Gadget is the only one with object detection, but Blink Pi wins the award for the best logo ☺️
+[BlinkPi](https://github.com/OVR92/BlinkPi)
+[BlinkPiBridge](https://github.com/dwilliams6683/blinkpibridge)
+
