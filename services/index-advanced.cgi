@@ -43,6 +43,47 @@ cat <<'EOF'
 :root {
     --thumb-min-size: 150px;
     --thumb-max-height: 200px;
+    --bg-color: #f5f5f5;
+    --text-color: #333333;
+    --dir-bg: #f0f0f0;
+    --dir-link-color: #0066cc;
+    --img-item-bg: #ffffff;
+    --img-item-border: #dddddd;
+    --size-control-bg: #e8e8e8;
+    --breadcrumb-bg: #e8e8e8;
+    --em-color: #888888;
+    --nav-link-bg: #0066cc;
+    --nav-link-hover-bg: #0052a3;
+}
+
+[data-theme="dark"] {
+    --bg-color: #1e1e1e;
+    --text-color: #e0e0e0;
+    --dir-bg: #2d2d2d;
+    --dir-link-color: #66b2ff;
+    --img-item-bg: #252525;
+    --img-item-border: #444444;
+    --size-control-bg: #2d2d2d;
+    --breadcrumb-bg: #2d2d2d;
+    --em-color: #aaaaaa;
+    --nav-link-bg: #0052a3;
+    --nav-link-hover-bg: #003d7a;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg-color: #1e1e1e;
+        --text-color: #e0e0e0;
+        --dir-bg: #2d2d2d;
+        --dir-link-color: #66b2ff;
+        --img-item-bg: #252525;
+        --img-item-border: #444444;
+        --size-control-bg: #2d2d2d;
+        --breadcrumb-bg: #2d2d2d;
+        --em-color: #aaaaaa;
+        --nav-link-bg: #0052a3;
+        --nav-link-hover-bg: #003d7a;
+    }
 }
 
 * { box-sizing: border-box; }
@@ -50,12 +91,14 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
     margin: 10px;
     padding: 0;
-    background: #f5f5f5;
+    background: var(--bg-color);
+    color: var(--text-color);
 }
-h1 { font-size: 1.5em; margin: 10px 0; }
-h2, h3 { font-size: 1.2em; margin: 10px 0; }
+h1, h2, h3 { font-size: 1.2em; margin: 10px 0; color: var(--text-color); }
+h1 { font-size: 1.5em; }
+
 .dir {
-    background: #f0f0f0;
+    background: var(--dir-bg);
     padding: 8px 12px;
     margin: 4px 6px 4px 0;
     display: inline-block;
@@ -63,7 +106,7 @@ h2, h3 { font-size: 1.2em; margin: 10px 0; }
 }
 .dir a {
     text-decoration: none;
-    color: #0066cc;
+    color: var(--dir-link-color);
     font-size: 1em;
 }
 .dir a:hover { text-decoration: underline; }
@@ -74,10 +117,10 @@ h2, h3 { font-size: 1.2em; margin: 10px 0; }
     margin: 10px 0;
 }
 .img-item {
-    border: 1px solid #ddd;
+    border: 1px solid var(--img-item-border);
     padding: 8px;
     text-align: center;
-    background: white;
+    background: var(--img-item-bg);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     cursor: pointer;
@@ -94,7 +137,7 @@ h2, h3 { font-size: 1.2em; margin: 10px 0; }
     display: flex;
     align-items: center;
     gap: 10px;
-    background: #e8e8e8;
+    background: var(--size-control-bg);
     padding: 8px 12px;
     border-radius: 5px;
     font-size: 0.9em;
@@ -102,6 +145,14 @@ h2, h3 { font-size: 1.2em; margin: 10px 0; }
 }
 .size-control input[type="range"] {
     flex-grow: 1;
+    cursor: pointer;
+}
+.size-control select {
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--img-item-border);
+    background: var(--img-item-bg);
+    color: var(--text-color);
     cursor: pointer;
 }
 .img-item .video-badge {
@@ -116,7 +167,7 @@ h2, h3 { font-size: 1.2em; margin: 10px 0; }
     pointer-events: none;
 }
 .breadcrumb {
-    background: #e8e8e8;
+    background: var(--breadcrumb-bg);
     padding: 8px 10px;
     margin: 10px 0;
     border-radius: 5px;
@@ -126,7 +177,7 @@ h2, h3 { font-size: 1.2em; margin: 10px 0; }
 }
 .breadcrumb a {
     text-decoration: none;
-    color: #0066cc;
+    color: var(--dir-link-color);
 }
 .breadcrumb a:hover { text-decoration: underline; }
 .nav-links {
@@ -135,30 +186,19 @@ h2, h3 { font-size: 1.2em; margin: 10px 0; }
     flex-wrap: wrap;
     gap: 10px;
 }
-.nav-links a {
+.nav-links a, p a {
     display: inline-block;
     padding: 8px 15px;
-    background: #0066cc;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    font-size: 0.9em;
-}
-.nav-links a:hover { background: #0052a3; }
-.nav-links a:active { transform: scale(0.95); }
-p a {
-    display: inline-block;
-    padding: 8px 15px;
-    background: #0066cc;
+    background: var(--nav-link-bg);
     color: white;
     text-decoration: none;
     border-radius: 5px;
     font-size: 0.9em;
     margin: 5px 5px 5px 0;
 }
-p a:hover { background: #0052a3; }
-p a:active { transform: scale(0.95); }
-em { color: #888; font-style: italic; }
+.nav-links a:hover, p a:hover { background: var(--nav-link-hover-bg); }
+.nav-links a:active, p a:active { transform: scale(0.95); }
+em { color: var(--em-color); font-style: italic; }
 
 /* Touch-friendly improvements */
 .dir a, .nav-links a, p a {
@@ -254,8 +294,8 @@ em { color: #888; font-style: italic; }
         --thumb-min-size: 120px;
         --thumb-max-height: 150px;
     }
-    body { 
-        margin: 5px; 
+    body {
+        margin: 5px;
         font-size: 18px; /* Increase base font size for better readability */
     }
     h1 { font-size: 1.4em; }
@@ -266,22 +306,43 @@ em { color: #888; font-style: italic; }
         font-size: 1em;
         margin: 4px 6px 4px 0;
     }
-    .breadcrumb { 
-        font-size: 0.95em; 
-        padding: 10px 12px; 
+    .breadcrumb {
+        font-size: 0.95em;
+        padding: 10px 12px;
     }
     .nav-links a, p a {
         padding: 12px 15px;
         font-size: 1em;
         min-height: 44px;
     }
+#    .size-control {
+#        font-size: 1em;
+#        padding: 12px;
+#    }
+#    .size-control input[type="range"] {
+#        height: 30px; /* Larger touch target for the slider */
+#    }
     .size-control {
+        flex-wrap: wrap; /* Allows items to wrap to the next line */
         font-size: 1em;
         padding: 12px;
     }
     .size-control input[type="range"] {
-        height: 30px; /* Larger touch target for the slider */
+        height: 30px;
+        width: 100%; /* Slider takes the full first line */
     }
+    .size-control span:last-of-type {
+        margin-left: 0 !important; /* Stops it from pushing off the right edge */
+        width: 100%;
+        margin-top: 8px;
+    }
+    .size-control select {
+        width: 100%; /* Dropdown takes full width for easy tapping */
+        padding: 10px;
+        font-size: 1em;
+        margin-top: 4px;
+    }
+#
     .image-viewer img, .image-viewer video {
         max-width: 95%;
         max-height: 75%;
@@ -312,6 +373,12 @@ echo "<h1>📷 Blink Gadget</h1>"
 echo "<div class='size-control'>"
 echo "<span>🔍 Thumbnail Size:</span>"
 echo "<input type='range' id='thumbSize' min='80' max='300' value='150' step='10'>"
+echo "<span style='margin-left: auto;'>🎨 Theme:</span>"
+echo "<select id='themeToggle'>"
+echo "<option value='system'>System</option>"
+echo "<option value='light'>Light</option>"
+echo "<option value='dark'>Dark</option>"
+echo "</select>"
 echo "</div>"
 echo "<div class='nav-links'>"
 
@@ -389,7 +456,6 @@ else
             fi
         done
     fi
-#    echo "<br>"
 
     # Show images in current directory (most recent first)
     echo "<h3>🖼️ Images in $(basename "$CURRENT_DIR")</h3>"
@@ -437,6 +503,29 @@ fi
 cat <<'EOF'
 <script>
 (function() {
+    // Theme toggle logic
+    var themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+        var savedTheme = localStorage.getItem('blinkTheme') || 'system';
+
+        function applyTheme(theme) {
+            if (theme === 'system') {
+                document.documentElement.removeAttribute('data-theme');
+            } else {
+                document.documentElement.setAttribute('data-theme', theme);
+            }
+            themeToggle.value = theme;
+        }
+
+        applyTheme(savedTheme);
+
+        themeToggle.addEventListener('change', function() {
+            var selectedTheme = this.value;
+            localStorage.setItem('blinkTheme', selectedTheme);
+            applyTheme(selectedTheme);
+        });
+    }
+
     // Thumbnail size control logic
     var sizeSlider = document.getElementById('thumbSize');
     if (sizeSlider) {
